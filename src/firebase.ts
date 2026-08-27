@@ -6,7 +6,7 @@ import {
   signInWithRedirect,
   signOut as firebaseSignOut,
 } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import { initializeFirestore } from 'firebase/firestore'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -23,7 +23,9 @@ export const isFirebaseConfigured = Boolean(
 
 export const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null
 export const auth = app ? getAuth(app) : null
-export const db = app ? getFirestore(app) : null
+// ignoreUndefinedProperties: forms save plenty of optional fields (cost, link,
+// a failed geocode result) as `undefined` — without this, Firestore throws.
+export const db = app ? initializeFirestore(app, { ignoreUndefinedProperties: true }) : null
 
 const googleProvider = new GoogleAuthProvider()
 

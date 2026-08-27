@@ -125,9 +125,30 @@ export default function BookedTab() {
           initial={editing ?? emptyForm}
           onCancel={() => setShowForm(false)}
           onSave={async (data) => {
-            if (editing) await update(editing.id, data)
-            else await add(data)
+            // Save immediately — geocoding happens in the background afterward so the
+            // form doesn't sit waiting on a network round-trip (and Nominatim's rate limit).
+            let id: string | undefined
+            if (editing) {
+              id = editing.id
+              await update(id, data)
+            } else {
+              id = await add(data)
+            }
             setShowForm(false)
+            if (!id) return
+
+            const countryName = data.country === 'other' ? '' : `, ${countryMeta(data.country).name}`
+            if (TRANSPORT_TYPES.includes(data.type)) {
+              if (data.from) {
+                geocodePlace(`${data.from}${countryName}`).then((loc) => loc && update(id, { fromLocation: loc }))
+              }
+              if (data.to) {
+                geocodePlace(`${data.to}${countryName}`).then((loc) => loc && update(id, { toLocation: loc }))
+              }
+            } else {
+              const query = data.to || data.title
+              geocodePlace(`${query}${countryName}`).then((loc) => loc && update(id, { location: loc }))
+            }
           }}
         />
       )}
@@ -154,18 +175,11 @@ function BookedForm({
         onSubmit={async (e) => {
           e.preventDefault()
           setSaving(true)
-          const countryName = form.country === 'other' ? '' : `, ${countryMeta(form.country).name}`
-          let data: FormState = form
-          if (TRANSPORT_TYPES.includes(form.type)) {
-            const [fromLocation, toLocation] = await Promise.all([
-              form.from ? geocodePlace(`${form.from}${countryName}`) : Promise.resolve(null),
-              form.to ? geocodePlace(`${form.to}${countryName}`) : Promise.resolve(null),
-            ])
-            data = { ...form, fromLocation: fromLocation ?? undefined, toLocation: toLocation ?? undefined, location: undefined }
-          } else {
-            const location = await geocodePlace(`${form.to || form.title}${countryName}`)
-            data = { ...form, location: location ?? undefined, fromLocation: undefined, toLocation: undefined }
-          }
+          // Clear whichever location shape doesn't apply to the current type — the
+          // background geocode (triggered by the parent after save) fills in the rest.
+          const data: FormState = TRANSPORT_TYPES.includes(form.type)
+            ? { ...form, location: undefined }
+            : { ...form, fromLocation: undefined, toLocation: undefined }
           await onSave(data)
           setSaving(false)
         }}
@@ -282,7 +296,7 @@ function BookedForm({
             Cancel
           </Button>
           <Button type="submit" disabled={saving}>
-            {saving ? 'Locating & saving…' : 'Save booking'}
+            {saving ? 'Saving…' : 'Save booking'}
           </Button>
         </div>
       </form>

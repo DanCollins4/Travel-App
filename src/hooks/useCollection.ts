@@ -42,9 +42,10 @@ export function useCollection<T extends { id: string; createdAt: number }>(colle
   }, [user, collectionName])
 
   async function add(data: Omit<T, 'id' | 'createdAt'>) {
-    if (!db || !user) return
+    if (!db || !user) return undefined
     const ref = collection(db, 'users', user.uid, collectionName)
-    await addDoc(ref, { ...data, createdAt: Date.now() })
+    const docRef = await addDoc(ref, { ...data, createdAt: Date.now() })
+    return docRef.id
   }
 
   async function update(id: string, data: Partial<Omit<T, 'id' | 'createdAt'>>) {

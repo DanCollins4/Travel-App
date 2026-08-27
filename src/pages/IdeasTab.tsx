@@ -138,9 +138,22 @@ export default function IdeasTab() {
           initial={editing ?? emptyForm}
           onCancel={() => setShowForm(false)}
           onSave={async (data) => {
-            if (editing) await update(editing.id, data)
-            else await add(data)
+            // Save immediately — geocoding happens in the background afterward so the
+            // form doesn't sit waiting on a network round-trip (and Nominatim's rate limit).
+            let id: string | undefined
+            if (editing) {
+              id = editing.id
+              await update(id, data)
+            } else {
+              id = await add(data)
+            }
             setShowForm(false)
+
+            if (!id) return
+            const query = data.country === 'other' ? data.title : `${data.title}, ${countryMeta(data.country).name}`
+            geocodePlace(query).then((location) => {
+              if (location) update(id, { location })
+            })
           }}
         />
       )}
@@ -167,11 +180,7 @@ function IdeaForm({
         onSubmit={async (e) => {
           e.preventDefault()
           setSaving(true)
-          const location =
-            form.country === 'other'
-              ? await geocodePlace(form.title)
-              : await geocodePlace(`${form.title}, ${countryMeta(form.country).name}`)
-          await onSave({ ...form, location: location ?? undefined })
+          await onSave(form)
           setSaving(false)
         }}
       >
@@ -254,7 +263,7 @@ function IdeaForm({
             Cancel
           </Button>
           <Button type="submit" disabled={saving}>
-            {saving ? 'Locating & saving…' : 'Save idea'}
+            {saving ? 'Saving…' : 'Save idea'}
           </Button>
         </div>
       </form>
