@@ -1,4 +1,13 @@
-export type CountryCode = 'china' | 'thailand' | 'laos' | 'cambodia' | 'vietnam' | 'malaysia' | 'other'
+export type CountryCode =
+  | 'australia'
+  | 'cambodia'
+  | 'china'
+  | 'hongkong'
+  | 'laos'
+  | 'malaysia'
+  | 'thailand'
+  | 'vietnam'
+  | 'other'
 
 export interface LatLng {
   lat: number
@@ -33,7 +42,11 @@ export interface BookedItem {
   currency?: string
   link?: string
   notes?: string
+  /** Single point for accommodation/tour/other — geocoded automatically from "to" (or title). */
   location?: LatLng
+  /** Endpoints for flight/train/bus/ferry legs — geocoded automatically from "from"/"to". */
+  fromLocation?: LatLng
+  toLocation?: LatLng
   createdAt: number
 }
 

@@ -5,6 +5,9 @@ import { COUNTRIES, countryMeta } from '../data/countryMeta'
 import { Button, Card, EmptyState, Input, Label, Pill, Select, Textarea } from '../components/ui'
 import Modal from '../components/Modal'
 import { format, parseISO } from 'date-fns'
+import { geocodePlace } from '../utils/geocode'
+
+const TRANSPORT_TYPES: BookedType[] = ['flight', 'train', 'bus', 'ferry']
 
 const TYPE_ICON: Record<BookedType, string> = {
   flight: '✈️',
@@ -151,7 +154,19 @@ function BookedForm({
         onSubmit={async (e) => {
           e.preventDefault()
           setSaving(true)
-          await onSave(form)
+          const countryName = form.country === 'other' ? '' : `, ${countryMeta(form.country).name}`
+          let data: FormState = form
+          if (TRANSPORT_TYPES.includes(form.type)) {
+            const [fromLocation, toLocation] = await Promise.all([
+              form.from ? geocodePlace(`${form.from}${countryName}`) : Promise.resolve(null),
+              form.to ? geocodePlace(`${form.to}${countryName}`) : Promise.resolve(null),
+            ])
+            data = { ...form, fromLocation: fromLocation ?? undefined, toLocation: toLocation ?? undefined, location: undefined }
+          } else {
+            const location = await geocodePlace(`${form.to || form.title}${countryName}`)
+            data = { ...form, location: location ?? undefined, fromLocation: undefined, toLocation: undefined }
+          }
+          await onSave(data)
           setSaving(false)
         }}
       >
@@ -192,13 +207,28 @@ function BookedForm({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="from">From</Label>
-            <Input id="from" value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })} />
+            <Input
+              id="from"
+              value={form.from}
+              onChange={(e) => setForm({ ...form, from: e.target.value })}
+              placeholder="e.g. Bangkok"
+            />
           </div>
           <div>
             <Label htmlFor="to">To</Label>
-            <Input id="to" value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} />
+            <Input
+              id="to"
+              value={form.to}
+              onChange={(e) => setForm({ ...form, to: e.target.value })}
+              placeholder="e.g. Chiang Mai"
+            />
           </div>
         </div>
+        <p className="text-xs text-slate-500 -mt-1">
+          {TRANSPORT_TYPES.includes(form.type)
+            ? "📍 From/To place names are used to plot this leg on the map automatically — real place names work best."
+            : '📍 "To" (or the title, if left blank) is used to place this on the map automatically.'}
+        </p>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="startDate">Start date</Label>
@@ -247,38 +277,12 @@ function BookedForm({
           <Label htmlFor="notes">Notes</Label>
           <Textarea id="notes" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label htmlFor="lat">Latitude (optional, for map)</Label>
-            <Input
-              id="lat"
-              type="number"
-              step="any"
-              value={form.location?.lat ?? ''}
-              onChange={(e) =>
-                setForm({ ...form, location: { lat: Number(e.target.value), lng: form.location?.lng ?? 0 } })
-              }
-            />
-          </div>
-          <div>
-            <Label htmlFor="lng">Longitude</Label>
-            <Input
-              id="lng"
-              type="number"
-              step="any"
-              value={form.location?.lng ?? ''}
-              onChange={(e) =>
-                setForm({ ...form, location: { lat: form.location?.lat ?? 0, lng: Number(e.target.value) } })
-              }
-            />
-          </div>
-        </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>
           <Button type="submit" disabled={saving}>
-            {saving ? 'Saving…' : 'Save booking'}
+            {saving ? 'Locating & saving…' : 'Save booking'}
           </Button>
         </div>
       </form>

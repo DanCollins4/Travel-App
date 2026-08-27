@@ -1,11 +1,42 @@
 import { useMemo } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet'
 import L from 'leaflet'
+import { format, parseISO } from 'date-fns'
 import { useCollection } from '../hooks/useCollection'
-import type { BookedItem, Idea } from '../types'
+import type { BookedItem, BookedType, Idea, LatLng } from '../types'
 import { countryMeta } from '../data/countryMeta'
 import { EmptyState } from '../components/ui'
-import { format, parseISO } from 'date-fns'
+
+const TRANSPORT_TYPES: BookedType[] = ['flight', 'train', 'bus', 'ferry']
+
+const TRANSPORT_COLOR: Record<string, string> = {
+  flight: '#38bdf8', // sky blue
+  train: '#a855f7', // violet
+  bus: '#f97316', // orange
+  ferry: '#06b6d4', // cyan
+}
+
+const TRANSPORT_ICON: Record<string, string> = {
+  flight: '✈️',
+  train: '🚆',
+  bus: '🚌',
+  ferry: '⛴️',
+}
+
+const BOOKED_PIN_COLOR = '#22c55e' // green — "you're confirmed to go here"
+const PRIORITY_COLOR: Record<Idea['priority'], string> = {
+  high: '#ef4444', // red
+  medium: '#f59e0b', // amber
+  low: '#94a3b8', // slate
+}
+const IDEA_ROUTE_COLOR = '#eab308' // amber-yellow dashed line through idea pins
+
+interface PlaceMarker {
+  key: string
+  name: string
+  loc: LatLng
+  bookings: BookedItem[]
+}
 
 function pinIcon(color: string, glyph: string) {
   return L.divIcon({
@@ -44,34 +75,60 @@ export default function MapTab() {
   const { items: booked, loading: loadingBooked } = useCollection<BookedItem>('booked')
   const { items: ideas, loading: loadingIdeas } = useCollection<Idea>('ideas')
 
-  const routeStops = useMemo(
-    () =>
-      booked
-        .filter((b) => b.location)
-        .sort((a, b) => a.startDate.localeCompare(b.startDate)),
+  const bookedPlaces = useMemo(() => {
+    const map = new Map<string, PlaceMarker>()
+    const addPlace = (name: string | undefined, loc: LatLng | undefined, booking: BookedItem) => {
+      if (!name?.trim() || !loc) return
+      const key = name.trim().toLowerCase()
+      const entry = map.get(key) ?? { key, name: name.trim(), loc, bookings: [] }
+      entry.bookings.push(booking)
+      map.set(key, entry)
+    }
+    for (const b of booked) {
+      if (TRANSPORT_TYPES.includes(b.type)) {
+        addPlace(b.from, b.fromLocation, b)
+        addPlace(b.to, b.toLocation, b)
+      } else {
+        addPlace(b.to || b.title, b.location, b)
+      }
+    }
+    return [...map.values()]
+  }, [booked])
+
+  const transportLegs = useMemo(
+    () => booked.filter((b) => TRANSPORT_TYPES.includes(b.type) && b.fromLocation && b.toLocation),
     [booked],
   )
-  const routeLine = useMemo<[number, number][]>(
-    () => routeStops.map((s) => [s.location!.lat, s.location!.lng]),
-    [routeStops],
+
+  const ideaPoints = useMemo(() => {
+    const priorityOrder = { high: 0, medium: 1, low: 2 }
+    return ideas
+      .filter((i) => i.location)
+      .sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority] || a.createdAt - b.createdAt)
+  }, [ideas])
+  const ideaRoute = useMemo<[number, number][]>(
+    () => ideaPoints.map((i) => [i.location!.lat, i.location!.lng]),
+    [ideaPoints],
   )
-  const ideaPoints = useMemo(() => ideas.filter((i) => i.location), [ideas])
 
   const allPoints = useMemo<[number, number][]>(
-    () => [...routeLine, ...ideaPoints.map((i) => [i.location!.lat, i.location!.lng] as [number, number])],
-    [routeLine, ideaPoints],
+    () => [
+      ...bookedPlaces.map((p) => [p.loc.lat, p.loc.lng] as [number, number]),
+      ...ideaPoints.map((i) => [i.location!.lat, i.location!.lng] as [number, number]),
+    ],
+    [bookedPlaces, ideaPoints],
   )
 
   const loading = loadingBooked || loadingIdeas
-  const hasAny = routeStops.length > 0 || ideaPoints.length > 0
+  const hasAny = bookedPlaces.length > 0 || ideaPoints.length > 0
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold">Route map</h1>
         <p className="text-sm text-slate-400">
-          Booked stops (in date order) connected as your route, plus idea pins you haven't booked yet. Add
-          coordinates to an Idea or Booking to see it here.
+          Booked flights/trains/buses/ferries are plotted automatically as coloured routes, place names are
+          located for you — no coordinates needed. Just fill in real place names on Ideas and Booked items.
         </p>
       </div>
 
@@ -79,7 +136,7 @@ export default function MapTab() {
         <EmptyState
           icon="🗺️"
           title="No locations plotted yet"
-          subtitle="Open an Idea or Booking and add latitude/longitude to plot it on the map."
+          subtitle="Add an Idea or a Booking with a real place name and it'll show up here automatically."
         />
       ) : (
         <div className="h-[65vh] rounded-2xl overflow-hidden border border-slate-800">
@@ -92,46 +149,65 @@ export default function MapTab() {
               maxZoom={19}
             />
             <FitBounds points={allPoints} />
-            {routeLine.length > 1 && (
-              <Polyline positions={routeLine} pathOptions={{ color: '#38bdf8', weight: 3, dashArray: '6 6' }} />
+
+            {/* Solid, mode-coloured lines for each booked transport leg */}
+            {transportLegs.map((leg) => (
+              <Polyline
+                key={leg.id}
+                positions={[
+                  [leg.fromLocation!.lat, leg.fromLocation!.lng],
+                  [leg.toLocation!.lat, leg.toLocation!.lng],
+                ]}
+                pathOptions={{ color: TRANSPORT_COLOR[leg.type], weight: 4, opacity: 0.85 }}
+              >
+                <Popup>
+                  <div className="text-sm">
+                    <p className="font-medium">
+                      {TRANSPORT_ICON[leg.type]} {leg.title}
+                    </p>
+                    <p className="text-slate-500">
+                      {leg.from} → {leg.to}
+                    </p>
+                    <p className="text-slate-500">{format(parseISO(leg.startDate), 'd MMM yyyy')}</p>
+                  </div>
+                </Popup>
+              </Polyline>
+            ))}
+
+            {/* Dashed line loosely connecting idea pins, ordered by priority */}
+            {ideaRoute.length > 1 && (
+              <Polyline positions={ideaRoute} pathOptions={{ color: IDEA_ROUTE_COLOR, weight: 2.5, dashArray: '4 8', opacity: 0.8 }} />
             )}
-            {routeStops.map((stop, idx) => {
-              const meta = countryMeta(stop.country)
-              return (
-                <Marker
-                  key={stop.id}
-                  position={[stop.location!.lat, stop.location!.lng]}
-                  icon={pinIcon(meta.color, String(idx + 1))}
-                >
-                  <Popup>
-                    <div className="text-sm">
-                      <p className="font-medium">{stop.title}</p>
-                      <p className="text-slate-500">
-                        {meta.flag} {meta.name} · {format(parseISO(stop.startDate), 'd MMM yyyy')}
+
+            {bookedPlaces.map((place) => (
+              <Marker key={place.key} position={[place.loc.lat, place.loc.lng]} icon={pinIcon(BOOKED_PIN_COLOR, '✓')}>
+                <Popup>
+                  <div className="text-sm space-y-1">
+                    <p className="font-medium">{place.name}</p>
+                    {place.bookings.map((b) => (
+                      <p key={b.id} className="text-slate-500">
+                        {TRANSPORT_TYPES.includes(b.type) ? TRANSPORT_ICON[b.type] : '📌'} {b.title} ·{' '}
+                        {format(parseISO(b.startDate), 'd MMM yyyy')}
                       </p>
-                      {stop.from && stop.to && (
-                        <p className="text-slate-500">
-                          {stop.from} → {stop.to}
-                        </p>
-                      )}
-                    </div>
-                  </Popup>
-                </Marker>
-              )
-            })}
+                    ))}
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+
             {ideaPoints.map((idea) => {
               const meta = countryMeta(idea.country)
               return (
                 <Marker
                   key={idea.id}
                   position={[idea.location!.lat, idea.location!.lng]}
-                  icon={pinIcon('#facc15', '💡')}
+                  icon={pinIcon(PRIORITY_COLOR[idea.priority], '💡')}
                 >
                   <Popup>
                     <div className="text-sm">
                       <p className="font-medium">{idea.title}</p>
                       <p className="text-slate-500">
-                        {meta.flag} {meta.name} · idea, not booked yet
+                        {meta.flag} {meta.name} · {idea.priority} priority idea, not booked yet
                       </p>
                     </div>
                   </Popup>
@@ -142,12 +218,37 @@ export default function MapTab() {
         </div>
       )}
 
-      <div className="flex flex-wrap gap-4 text-xs text-slate-400">
+      <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-400">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-full bg-sky-400" /> Booked stop (numbered by date)
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: BOOKED_PIN_COLOR }} /> Booked place
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-full bg-yellow-400" /> 💡 Idea, not booked
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: PRIORITY_COLOR.high }} /> High priority idea
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: PRIORITY_COLOR.medium }} /> Medium priority idea
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: PRIORITY_COLOR.low }} /> Low priority idea
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-4 h-0.5" style={{ backgroundColor: TRANSPORT_COLOR.flight }} /> Flight
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-4 h-0.5" style={{ backgroundColor: TRANSPORT_COLOR.train }} /> Train
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-4 h-0.5" style={{ backgroundColor: TRANSPORT_COLOR.bus }} /> Bus
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-4 h-0.5" style={{ backgroundColor: TRANSPORT_COLOR.ferry }} /> Ferry
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span
+            className="inline-block w-4 h-0.5"
+            style={{ backgroundImage: `linear-gradient(90deg, ${IDEA_ROUTE_COLOR} 60%, transparent 40%)`, backgroundSize: '6px 2px' }}
+          />{' '}
+          Idea route (not booked)
         </span>
       </div>
     </div>

@@ -4,6 +4,7 @@ import type { BookedItem, CountryCode, Idea } from '../types'
 import { COUNTRIES, countryMeta } from '../data/countryMeta'
 import { Button, Card, EmptyState, Input, Label, Pill, Select, Textarea } from '../components/ui'
 import Modal from '../components/Modal'
+import { geocodePlace } from '../utils/geocode'
 
 const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 }
 const PRIORITY_LABEL = { high: '🔥 High', medium: '⭐ Medium', low: '💭 Low' }
@@ -166,7 +167,11 @@ function IdeaForm({
         onSubmit={async (e) => {
           e.preventDefault()
           setSaving(true)
-          await onSave(form)
+          const location =
+            form.country === 'other'
+              ? await geocodePlace(form.title)
+              : await geocodePlace(`${form.title}, ${countryMeta(form.country).name}`)
+          await onSave({ ...form, location: location ?? undefined })
           setSaving(false)
         }}
       >
@@ -240,47 +245,16 @@ function IdeaForm({
             />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label htmlFor="lat">Latitude (optional, for map)</Label>
-            <Input
-              id="lat"
-              type="number"
-              step="any"
-              value={form.location?.lat ?? ''}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  location: { lat: Number(e.target.value), lng: form.location?.lng ?? 0 },
-                })
-              }
-            />
-          </div>
-          <div>
-            <Label htmlFor="lng">Longitude</Label>
-            <Input
-              id="lng"
-              type="number"
-              step="any"
-              value={form.location?.lng ?? ''}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  location: { lat: form.location?.lat ?? 0, lng: Number(e.target.value) },
-                })
-              }
-            />
-          </div>
-        </div>
-        <p className="text-xs text-slate-500 -mt-1">
-          Tip: right-click a place on Google Maps and tap the coordinates to copy them.
+        <p className="text-xs text-slate-500">
+          📍 We'll automatically find this place on the map from its title — no coordinates needed. If the map pin
+          ends up in the wrong spot, try making the title more specific (e.g. add the nearest city).
         </p>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>
           <Button type="submit" disabled={saving}>
-            {saving ? 'Saving…' : 'Save idea'}
+            {saving ? 'Locating & saving…' : 'Save idea'}
           </Button>
         </div>
       </form>
