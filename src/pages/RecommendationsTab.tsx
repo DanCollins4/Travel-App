@@ -11,7 +11,7 @@ export default function RecommendationsTab() {
       <div>
         <h1 className="text-xl font-semibold">Recommendations</h1>
         <p className="text-sm text-slate-400">
-          Quick-reference guides for your six countries: highlights, health, currency, weather and plugs.
+          Quick-reference guides for your route: highlights, health, currency, weather, plugs and local phrases.
         </p>
       </div>
 
@@ -99,6 +99,22 @@ export default function RecommendationsTab() {
               </div>
             ))}
           </div>
+        </Card>
+
+        <Card>
+          <h3 className="font-medium text-slate-200 mb-3">🗣️ Language cheat sheet</h3>
+          {guide.phrases ? (
+            <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
+              {guide.phrases.map((p) => (
+                <div key={p.english} className="flex justify-between gap-3 text-sm border-b border-slate-800/60 pb-1.5">
+                  <span className="text-slate-400">{p.english}</span>
+                  <span className="text-slate-200 font-medium text-right">{p.local}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">English-speaking — no cheat sheet needed here.</p>
+          )}
         </Card>
 
         <div className="grid gap-3 sm:grid-cols-2">

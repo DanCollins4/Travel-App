@@ -4,6 +4,7 @@ import type { BookedItem, BudgetCategory, BudgetEntry, CountryCode } from '../ty
 import { COUNTRIES, countryMeta } from '../data/countryMeta'
 import { Button, Card, EmptyState, Input, Label, Select } from '../components/ui'
 import Modal from '../components/Modal'
+import CurrencyConverter from '../components/CurrencyConverter'
 
 const CATEGORY_LABEL: Record<BudgetCategory, string> = {
   flights: '✈️ Flights',
@@ -50,7 +51,15 @@ export default function BudgetTab() {
     return [...totals.entries()].sort((a, b) => b[1] - a[1])
   }, [booked, budget.items])
 
+  const byCountry = useMemo(() => {
+    const totals = new Map<CountryCode, number>()
+    for (const b of booked) totals.set(b.country, (totals.get(b.country) ?? 0) + (b.cost ?? 0))
+    for (const e of budget.items) totals.set(e.country, (totals.get(e.country) ?? 0) + e.amount)
+    return [...totals.entries()].sort((a, b) => b[1] - a[1])
+  }, [booked, budget.items])
+
   const maxCategory = Math.max(1, ...byCategory.map(([, v]) => v))
+  const maxCountry = Math.max(1, ...byCountry.map(([, v]) => v))
 
   const bookedTotal = useMemo(() => booked.reduce((s, b) => s + (b.cost ?? 0), 0), [booked])
   const plannedTotal = useMemo(
@@ -99,6 +108,8 @@ export default function BudgetTab() {
         </Card>
       </div>
 
+      <CurrencyConverter />
+
       {byCategory.length > 0 && (
         <Card>
           <h3 className="font-medium text-slate-200 mb-3">By category</h3>
@@ -107,13 +118,43 @@ export default function BudgetTab() {
               <div key={cat}>
                 <div className="flex justify-between text-xs text-slate-400 mb-1">
                   <span>{CATEGORY_LABEL[cat]}</span>
-                  <span>£{amount.toLocaleString()}</span>
+                  <span>
+                    £{amount.toLocaleString()}
+                    <span className="text-slate-600"> · {Math.round((amount / grandTotal) * 100) || 0}%</span>
+                  </span>
                 </div>
                 <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
                   <div className="h-full bg-sky-500 rounded-full" style={{ width: `${(amount / maxCategory) * 100}%` }} />
                 </div>
               </div>
             ))}
+          </div>
+        </Card>
+      )}
+
+      {byCountry.length > 0 && (
+        <Card>
+          <h3 className="font-medium text-slate-200 mb-3">By country</h3>
+          <div className="space-y-2.5">
+            {byCountry.map(([code, amount]) => {
+              const meta = countryMeta(code)
+              return (
+                <div key={code}>
+                  <div className="flex justify-between text-xs text-slate-400 mb-1">
+                    <span>
+                      {meta.flag} {meta.name}
+                    </span>
+                    <span>
+                      £{amount.toLocaleString()}
+                      <span className="text-slate-600"> · {Math.round((amount / grandTotal) * 100) || 0}%</span>
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${(amount / maxCountry) * 100}%`, backgroundColor: meta.color }} />
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </Card>
       )}

@@ -1,11 +1,13 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { useCollection } from '../hooks/useCollection'
-import type { BookedItem, Idea } from '../types'
+import type { BookedItem, Idea, PublicShareStop } from '../types'
 import { countryMeta } from '../data/countryMeta'
-import { Card, EmptyState, Pill } from '../components/ui'
+import { Button, Card, EmptyState, Input, Pill } from '../components/ui'
+import Modal from '../components/Modal'
 import { useAuth } from '../contexts/AuthContext'
+import { getOrCreateShareId, publishShare, unpublishShare } from '../utils/publicShare'
 
 const TYPE_ICON: Record<BookedItem['type'], string> = {
   flight: '✈️',
@@ -21,6 +23,7 @@ export default function ItineraryTab() {
   const { user } = useAuth()
   const { items: booked, loading: loadingBooked } = useCollection<BookedItem>('booked')
   const { items: ideas } = useCollection<Idea>('ideas')
+  const [showShare, setShowShare] = useState(false)
 
   const sorted = useMemo(() => [...booked].sort((a, b) => a.startDate.localeCompare(b.startDate)), [booked])
   const upcoming = sorted.filter((b) => b.startDate >= new Date().toISOString().slice(0, 10))
@@ -46,11 +49,16 @@ export default function ItineraryTab() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">
-          Welcome back{user?.displayName ? `, ${user.displayName.split(' ')[0]}` : ''} 👋
-        </h1>
-        <p className="text-sm text-slate-400">Here's the shape of your gap year so far.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold">
+            Welcome back{user?.displayName ? `, ${user.displayName.split(' ')[0]}` : ''} 👋
+          </h1>
+          <p className="text-sm text-slate-400">Here's the shape of your gap year so far.</p>
+        </div>
+        <Button variant="secondary" onClick={() => setShowShare(true)}>
+          🔗 Share itinerary
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -134,6 +142,8 @@ export default function ItineraryTab() {
           </div>
         </div>
       )}
+
+      {showShare && user && <ShareModal userId={user.uid} displayName={user.displayName} booked={booked} onClose={() => setShowShare(false)} />}
     </div>
   )
 }
@@ -144,5 +154,91 @@ function StatCard({ label, value }: { label: string; value: string }) {
       <p className="text-2xl font-semibold text-slate-100">{value}</p>
       <p className="text-xs text-slate-500 mt-0.5">{label}</p>
     </Card>
+  )
+}
+
+function ShareModal({
+  userId,
+  displayName,
+  booked,
+  onClose,
+}: {
+  userId: string
+  displayName: string | null
+  booked: BookedItem[]
+  onClose: () => void
+}) {
+  const [url, setUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  async function generate() {
+    setLoading(true)
+    const shareId = await getOrCreateShareId(userId)
+    const stops: PublicShareStop[] = booked.map((b) => ({
+      title: b.title,
+      type: b.type,
+      country: b.country,
+      from: b.from,
+      to: b.to,
+      startDate: b.startDate,
+      endDate: b.endDate,
+    }))
+    await publishShare(shareId, {
+      ownerUid: userId,
+      ownerName: displayName?.split(' ')[0],
+      stops,
+    })
+    setUrl(`${window.location.origin}/share/${shareId}`)
+    setLoading(false)
+  }
+
+  async function stopSharing() {
+    if (!url) return
+    setLoading(true)
+    await unpublishShare(url.split('/').pop()!)
+    setUrl(null)
+    setLoading(false)
+  }
+
+  function copyLink() {
+    if (!url) return
+    navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <Modal title="Share your itinerary" onClose={onClose}>
+      <div className="space-y-3">
+        <p className="text-sm text-slate-400">
+          Generates a public, read-only link showing your booked stops — dates, places and transport only. No
+          costs, confirmation numbers or notes are included. Anyone with the link can view it, and you can revoke
+          it any time.
+        </p>
+        {!url ? (
+          <Button onClick={generate} disabled={loading}>
+            {loading ? 'Generating…' : 'Generate link'}
+          </Button>
+        ) : (
+          <>
+            <div className="flex gap-2">
+              <Input readOnly value={url} className="flex-1" onFocus={(e) => e.currentTarget.select()} />
+              <Button variant="secondary" onClick={copyLink}>
+                {copied ? 'Copied!' : 'Copy'}
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={generate} disabled={loading}>
+                Refresh with latest bookings
+              </Button>
+              <Button variant="danger" onClick={stopSharing} disabled={loading}>
+                Stop sharing
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
   )
 }

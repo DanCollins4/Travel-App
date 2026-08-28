@@ -7,6 +7,8 @@ const TABS = [
   { to: '/ideas', label: 'Ideas', icon: '💡' },
   { to: '/booked', label: 'Booked', icon: '🎫' },
   { to: '/map', label: 'Map', icon: '🗺️' },
+  { to: '/journal', label: 'Journal', icon: '📓' },
+  { to: '/contacts', label: 'Contacts', icon: '📇' },
   { to: '/budget', label: 'Budget', icon: '💰' },
   { to: '/packing', label: 'Packing', icon: '🎒' },
   { to: '/documents', label: 'Documents', icon: '📄' },

@@ -24,7 +24,25 @@ export interface CountryGuide {
   gettingAround: string
   moneyTips: string
   safetyTips: string
+  /** Essential phrases — omitted for English-speaking destinations. */
+  phrases?: { english: string; local: string }[]
 }
+
+export const PHRASE_LIST = [
+  'Hello',
+  'Thank you',
+  'Please',
+  'Yes',
+  'No',
+  "Sorry / excuse me",
+  'How much?',
+  "Where's the toilet?",
+  "I don't understand",
+  'Delicious!',
+  'Cheers!',
+  'Help!',
+  '1, 2, 3, 4, 5',
+] as const
 
 export const COUNTRY_GUIDES: CountryGuide[] = [
   {
@@ -84,6 +102,21 @@ export const COUNTRY_GUIDES: CountryGuide[] = [
     gettingAround: 'Buses and minivans connect the main towns cheaply; roads have improved a lot but can still be slow. Tuk-tuks are the standard way to get around cities and temple complexes.',
     moneyTips: 'Bring crisp, undamaged USD notes — torn or heavily worn bills are often refused. Riel is given as change for anything under $1.',
     safetyTips: 'Generally safe for travellers; take normal precautions with bags in Phnom Penh. Stick to marked paths in rural areas due to residual landmines/UXO from past conflicts.',
+    phrases: [
+      { english: 'Hello', local: "Sua s'dei" },
+      { english: 'Thank you', local: 'Arkun' },
+      { english: 'Please', local: 'Sohm' },
+      { english: 'Yes', local: 'Baat / Chaa' },
+      { english: 'No', local: 'Ott te' },
+      { english: 'Sorry / excuse me', local: 'Sohm dtoh' },
+      { english: 'How much?', local: 'Tlai ponman?' },
+      { english: "Where's the toilet?", local: 'Bong-kun noyu ae naa?' },
+      { english: "I don't understand", local: 'Knyom min yoo l' },
+      { english: 'Delicious!', local: 'Chgnanh!' },
+      { english: 'Cheers!', local: 'Chol muoy!' },
+      { english: 'Help!', local: 'Choo-ay phawng!' },
+      { english: '1, 2, 3, 4, 5', local: 'Muoy, Pii, Bei, Buon, Pram' },
+    ],
   },
   {
     code: 'china',
@@ -117,6 +150,21 @@ export const COUNTRY_GUIDES: CountryGuide[] = [
     gettingAround: 'The high-speed rail network is fast, cheap and covers most of the country — book via Trip.com. Domestic flights are useful for longer hops (e.g. into Yunnan).',
     moneyTips: 'Set up Alipay or WeChat Pay linked to a foreign card before arrival; almost nothing, including street food, runs on cash anymore.',
     safetyTips: 'Very low petty crime. Main friction points are the language barrier and needing a VPN for Google, Gmail, WhatsApp and most Western apps — install one before you land.',
+    phrases: [
+      { english: 'Hello', local: 'Nǐ hǎo (你好)' },
+      { english: 'Thank you', local: 'Xièxiè (谢谢)' },
+      { english: 'Please', local: 'Qǐng (请)' },
+      { english: 'Yes', local: 'Shì / Duì (是 / 对)' },
+      { english: 'No', local: 'Bù (不)' },
+      { english: 'Sorry / excuse me', local: 'Duìbùqǐ (对不起)' },
+      { english: 'How much?', local: 'Duōshǎo qián? (多少钱？)' },
+      { english: "Where's the toilet?", local: 'Cèsuǒ zài nǎlǐ? (厕所在哪里？)' },
+      { english: "I don't understand", local: 'Wǒ bù dǒng (我不懂)' },
+      { english: 'Delicious!', local: 'Hǎo chī! (好吃！)' },
+      { english: 'Cheers!', local: 'Gānbēi! (干杯！)' },
+      { english: 'Help!', local: 'Jiùmìng! (救命！)' },
+      { english: '1, 2, 3, 4, 5', local: 'Yī, èr, sān, sì, wǔ (一, 二, 三, 四, 五)' },
+    ],
   },
   {
     code: 'hongkong',
@@ -177,6 +225,21 @@ export const COUNTRY_GUIDES: CountryGuide[] = [
     gettingAround: 'Roads are slower and rougher than neighbouring countries — budget extra travel time. VIP buses and minivans link the main towns; the new Laos–China railway is a fast option between Vientiane and Luang Prabang.',
     moneyTips: 'ATMs have low withdrawal limits and charge fees — withdraw larger amounts less often, and carry some USD as backup for remote areas.',
     safetyTips: 'Laos is generally very safe and laid-back. Stick to marked paths in rural areas due to unexploded ordnance (UXO) left from the Vietnam War era.',
+    phrases: [
+      { english: 'Hello', local: 'Sabaidee' },
+      { english: 'Thank you', local: 'Khop chai' },
+      { english: 'Please', local: 'Ka luna' },
+      { english: 'Yes', local: 'Doi / Chai' },
+      { english: 'No', local: 'Bo' },
+      { english: 'Sorry / excuse me', local: 'Khor thot' },
+      { english: 'How much?', local: 'Thao dai?' },
+      { english: "Where's the toilet?", local: 'Hong nam yu sai?' },
+      { english: "I don't understand", local: 'Bo khao chai' },
+      { english: 'Delicious!', local: 'Saep!' },
+      { english: 'Cheers!', local: 'Chok dee!' },
+      { english: 'Help!', local: 'Suay dae!' },
+      { english: '1, 2, 3, 4, 5', local: 'Neung, Song, Sam, Si, Ha' },
+    ],
   },
   {
     code: 'malaysia',
@@ -207,6 +270,21 @@ export const COUNTRY_GUIDES: CountryGuide[] = [
     gettingAround: 'Excellent and cheap — the ETS train links KL to Penang and Ipoh, long-distance buses are comfortable, and AirAsia connects the peninsula to Borneo affordably.',
     moneyTips: 'Malaysia is generally the best-value stop for card payments — contactless is widely accepted even at hawker stalls, so you can carry less cash than elsewhere on the route.',
     safetyTips: 'One of the safer and easiest countries in the region for English-speaking travellers. Standard petty-crime precautions apply in KL; take care with currents at east-coast beaches.',
+    phrases: [
+      { english: 'Hello', local: 'Helo / Selamat sejahtera' },
+      { english: 'Thank you', local: 'Terima kasih' },
+      { english: 'Please', local: 'Tolong' },
+      { english: 'Yes', local: 'Ya' },
+      { english: 'No', local: 'Tidak' },
+      { english: 'Sorry / excuse me', local: 'Maaf' },
+      { english: 'How much?', local: 'Berapa harga?' },
+      { english: "Where's the toilet?", local: 'Tandas di mana?' },
+      { english: "I don't understand", local: 'Saya tidak faham' },
+      { english: 'Delicious!', local: 'Sedap!' },
+      { english: 'Cheers!', local: 'Yamseng!' },
+      { english: 'Help!', local: 'Tolong!' },
+      { english: '1, 2, 3, 4, 5', local: 'Satu, Dua, Tiga, Empat, Lima' },
+    ],
   },
   {
     code: 'thailand',
@@ -237,6 +315,21 @@ export const COUNTRY_GUIDES: CountryGuide[] = [
     gettingAround: 'Overnight trains and VIP buses connect major cities cheaply; budget flights (AirAsia, Nok Air) save time on longer hops; ferries link the islands.',
     moneyTips: 'ATMs are everywhere but charge a foreign transaction fee (~220 THB) per withdrawal — a fee-free travel card and fewer, larger withdrawals help.',
     safetyTips: 'Very tourist-friendly. Watch for the classic scams (tuk-tuk "closed temple" detours, jet-ski damage claims, gem shops) and always agree taxi/tuk-tuk fares or insist on the meter.',
+    phrases: [
+      { english: 'Hello', local: 'Sawatdee (khrap/kha)' },
+      { english: 'Thank you', local: 'Khob khun (khrap/kha)' },
+      { english: 'Please', local: 'Karuna' },
+      { english: 'Yes', local: 'Chai' },
+      { english: 'No', local: 'Mai chai' },
+      { english: 'Sorry / excuse me', local: 'Khor thot' },
+      { english: 'How much?', local: 'Tao rai?' },
+      { english: "Where's the toilet?", local: 'Hong nam yu nai?' },
+      { english: "I don't understand", local: 'Mai khao jai' },
+      { english: 'Delicious!', local: 'Aroi!' },
+      { english: 'Cheers!', local: 'Chok dee!' },
+      { english: 'Help!', local: 'Chuay duay!' },
+      { english: '1, 2, 3, 4, 5', local: 'Neung, Song, Sam, Si, Ha' },
+    ],
   },
   {
     code: 'vietnam',
@@ -268,6 +361,21 @@ export const COUNTRY_GUIDES: CountryGuide[] = [
     gettingAround: 'The "open bus" tickets and overnight sleeper trains along Highway 1 make north–south travel easy and cheap; domestic flights are handy for skipping long stretches.',
     moneyTips: 'Prices are in the thousands/millions of dong — round to make mental maths easier, and photograph exchange rates so you can spot when the number is off by a zero.',
     safetyTips: 'Traffic (especially scooters) is the biggest real risk — take extra care crossing roads and wear a helmet if you ride one yourself. Petty theft (bag-snatching from passing motorbikes) happens in big cities, so keep bags on the building side of the pavement.',
+    phrases: [
+      { english: 'Hello', local: 'Xin chào' },
+      { english: 'Thank you', local: 'Cảm ơn' },
+      { english: 'Please', local: 'Làm ơn' },
+      { english: 'Yes', local: 'Vâng / Dạ' },
+      { english: 'No', local: 'Không' },
+      { english: 'Sorry / excuse me', local: 'Xin lỗi' },
+      { english: 'How much?', local: 'Bao nhiêu tiền?' },
+      { english: "Where's the toilet?", local: 'Nhà vệ sinh ở đâu?' },
+      { english: "I don't understand", local: 'Tôi không hiểu' },
+      { english: 'Delicious!', local: 'Ngon!' },
+      { english: 'Cheers!', local: 'Một hai ba, dzô!' },
+      { english: 'Help!', local: 'Cứu tôi!' },
+      { english: '1, 2, 3, 4, 5', local: 'Một, Hai, Ba, Bốn, Năm' },
+    ],
   },
 ]
 

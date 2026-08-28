@@ -55,6 +55,15 @@ export interface PackingItem {
   label: string
   category: string
   packed: boolean
+  /** References a PackingList id, or the constant 'general' for the default master list. */
+  listId: string
+  createdAt: number
+}
+
+export interface PackingList {
+  id: string
+  name: string
+  climate?: string
   createdAt: number
 }
 
@@ -88,4 +97,47 @@ export interface DocumentItem {
   link?: string
   done: boolean
   createdAt: number
+}
+
+export interface JournalEntry {
+  id: string
+  title: string
+  date: string // ISO date
+  country: CountryCode
+  /** Optional link to the Booked stop this entry happened at. */
+  linkedBookingId?: string
+  text?: string
+  photoUrls: string[]
+  createdAt: number
+}
+
+export interface Contact {
+  id: string
+  name: string
+  metWhere?: string
+  metDate?: string // ISO date
+  country: CountryCode
+  phone?: string
+  email?: string
+  social?: string
+  notes?: string
+  createdAt: number
+}
+
+/** A public, read-only snapshot of the itinerary — written once when the user generates a share link. */
+export interface PublicShareStop {
+  title: string
+  type: BookedType
+  country: CountryCode
+  from?: string
+  to?: string
+  startDate: string
+  endDate?: string
+}
+
+export interface PublicShare {
+  ownerUid: string
+  ownerName?: string
+  updatedAt: number
+  stops: PublicShareStop[]
 }

@@ -7,6 +7,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  setDoc,
   updateDoc,
 } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -48,6 +49,13 @@ export function useCollection<T extends { id: string; createdAt: number }>(colle
     return docRef.id
   }
 
+  /** Like add(), but lets the caller pick the doc id up front — useful when other
+   * resources (e.g. uploaded photos) need to reference the id before the write completes. */
+  async function addWithId(id: string, data: Omit<T, 'id' | 'createdAt'>) {
+    if (!db || !user) return
+    await setDoc(doc(db, 'users', user.uid, collectionName, id), { ...data, createdAt: Date.now() })
+  }
+
   async function update(id: string, data: Partial<Omit<T, 'id' | 'createdAt'>>) {
     if (!db || !user) return
     await updateDoc(doc(db, 'users', user.uid, collectionName, id), data)
@@ -58,5 +66,5 @@ export function useCollection<T extends { id: string; createdAt: number }>(colle
     await deleteDoc(doc(db, 'users', user.uid, collectionName, id))
   }
 
-  return { items, loading, add, update, remove }
+  return { items, loading, add, addWithId, update, remove }
 }
