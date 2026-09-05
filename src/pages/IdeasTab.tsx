@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useCollection } from '../hooks/useCollection'
 import type { BookedItem, CountryCode, Idea } from '../types'
-import { COUNTRIES, countryMeta } from '../data/countryMeta'
+import { COUNTRIES, countryIso2, countryMeta } from '../data/countryMeta'
 import { Button, Card, EmptyState, Input, Label, Pill, Select, Textarea } from '../components/ui'
 import Modal from '../components/Modal'
 import { geocodePlace } from '../utils/geocode'
@@ -150,8 +150,7 @@ export default function IdeasTab() {
             setShowForm(false)
 
             if (!id) return
-            const query = data.country === 'other' ? data.title : `${data.title}, ${countryMeta(data.country).name}`
-            geocodePlace(query).then((location) => {
+            geocodePlace(data.title, countryIso2(data.country)).then((location) => {
               if (location) update(id, { location })
             })
           }}
@@ -239,6 +238,7 @@ function IdeaForm({
               id="estCost"
               type="number"
               min={0}
+              step="0.01"
               value={form.estCost ?? ''}
               onChange={(e) => setForm({ ...form, estCost: e.target.value ? Number(e.target.value) : undefined })}
             />

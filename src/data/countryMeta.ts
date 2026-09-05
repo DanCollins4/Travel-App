@@ -15,3 +15,19 @@ export const COUNTRIES: { code: CountryCode; name: string; flag: string; color: 
 export function countryMeta(code: CountryCode) {
   return COUNTRIES.find((c) => c.code === code) ?? COUNTRIES[COUNTRIES.length - 1]
 }
+
+/** ISO 3166-1 alpha-2 codes, used to restrict geocoding to the right country. */
+const COUNTRY_ISO2: Partial<Record<CountryCode, string>> = {
+  australia: 'au',
+  cambodia: 'kh',
+  china: 'cn',
+  hongkong: 'hk',
+  laos: 'la',
+  malaysia: 'my',
+  thailand: 'th',
+  vietnam: 'vn',
+}
+
+export function countryIso2(code: CountryCode): string | undefined {
+  return COUNTRY_ISO2[code]
+}

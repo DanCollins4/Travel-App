@@ -266,7 +266,7 @@ function BudgetForm({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="amount">Amount</Label>
-            <Input id="amount" type="number" min={0} required value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} />
+            <Input id="amount" type="number" min={0} step="0.01" required value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} />
           </div>
           <div>
             <Label htmlFor="currency">Currency</Label>

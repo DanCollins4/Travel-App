@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useCollection } from '../hooks/useCollection'
 import type { BookedItem, BookedType, CountryCode } from '../types'
-import { COUNTRIES, countryMeta } from '../data/countryMeta'
+import { COUNTRIES, countryIso2, countryMeta } from '../data/countryMeta'
 import { Button, Card, EmptyState, Input, Label, Pill, Select, Textarea } from '../components/ui'
 import Modal from '../components/Modal'
 import { format, parseISO } from 'date-fns'
@@ -137,17 +137,17 @@ export default function BookedTab() {
             setShowForm(false)
             if (!id) return
 
-            const countryName = data.country === 'other' ? '' : `, ${countryMeta(data.country).name}`
+            const iso2 = countryIso2(data.country)
             if (TRANSPORT_TYPES.includes(data.type)) {
               if (data.from) {
-                geocodePlace(`${data.from}${countryName}`).then((loc) => loc && update(id, { fromLocation: loc }))
+                geocodePlace(data.from, iso2).then((loc) => loc && update(id, { fromLocation: loc }))
               }
               if (data.to) {
-                geocodePlace(`${data.to}${countryName}`).then((loc) => loc && update(id, { toLocation: loc }))
+                geocodePlace(data.to, iso2).then((loc) => loc && update(id, { toLocation: loc }))
               }
             } else {
               const query = data.to || data.title
-              geocodePlace(`${query}${countryName}`).then((loc) => loc && update(id, { location: loc }))
+              geocodePlace(query, iso2).then((loc) => loc && update(id, { location: loc }))
             }
           }}
         />
@@ -279,6 +279,7 @@ function BookedForm({
             id="cost"
             type="number"
             min={0}
+            step="0.01"
             value={form.cost ?? ''}
             onChange={(e) => setForm({ ...form, cost: e.target.value ? Number(e.target.value) : undefined })}
           />
