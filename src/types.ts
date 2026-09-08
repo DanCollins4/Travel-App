@@ -75,6 +75,7 @@ export type BudgetCategory =
   | 'activities'
   | 'visas'
   | 'insurance'
+  | 'vaccinations'
   | 'gear'
   | 'other'
 
@@ -89,6 +90,10 @@ export interface BudgetEntry {
   createdAt: number
 }
 
+/** A document/prep cost can belong to a specific country, or to 'trip' for
+ * things like vaccinations or insurance that aren't tied to one place. */
+export type DocumentCountry = CountryCode | 'trip'
+
 export interface DocumentItem {
   id: string
   label: string
@@ -96,6 +101,9 @@ export interface DocumentItem {
   notes?: string
   link?: string
   done: boolean
+  country: DocumentCountry
+  cost?: number
+  currency?: string
   createdAt: number
 }
 

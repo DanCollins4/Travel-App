@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useCollection } from '../hooks/useCollection'
-import type { DocumentItem } from '../types'
+import type { DocumentCountry, DocumentItem } from '../types'
 import { DOCUMENTS_PRESET } from '../data/documentsPreset'
-import { Button, Card, EmptyState, Input, Label, Select, Textarea } from '../components/ui'
+import { COUNTRIES, countryOrTripMeta } from '../data/countryMeta'
+import { Button, Card, EmptyState, Input, Label, Pill, Select, Textarea } from '../components/ui'
 import Modal from '../components/Modal'
 
 const CATEGORY_LABEL: Record<DocumentItem['category'], string> = {
@@ -15,7 +16,7 @@ const CATEGORY_LABEL: Record<DocumentItem['category'], string> = {
 }
 
 type FormState = Omit<DocumentItem, 'id' | 'createdAt'>
-const emptyForm: FormState = { label: '', category: 'other', notes: '', link: '', done: false }
+const emptyForm: FormState = { label: '', category: 'other', notes: '', link: '', done: false, country: 'trip', cost: undefined, currency: 'GBP' }
 
 export default function DocumentsTab() {
   const { items, loading, add, update, remove } = useCollection<DocumentItem>('documents')
@@ -32,11 +33,12 @@ export default function DocumentsTab() {
   }, [items])
 
   const doneCount = items.filter((i) => i.done).length
+  const totalCost = useMemo(() => items.reduce((sum, i) => sum + (i.cost ?? 0), 0), [items])
 
   async function loadPreset() {
     const existing = new Set(items.map((i) => i.label))
     for (const p of DOCUMENTS_PRESET) {
-      if (!existing.has(p.label)) await add({ label: p.label, category: p.category, notes: p.notes, link: '', done: false })
+      if (!existing.has(p.label)) await add({ label: p.label, category: p.category, country: p.country, notes: p.notes, link: '', done: false })
     }
   }
 
@@ -47,6 +49,7 @@ export default function DocumentsTab() {
           <h1 className="text-xl font-semibold">Documents &amp; prep</h1>
           <p className="text-sm text-slate-400">
             {items.length > 0 ? `${doneCount} of ${items.length} sorted` : 'Track visas, insurance, vaccinations and other admin.'}
+            {totalCost > 0 && <span className="text-slate-300"> · £{totalCost.toLocaleString()} spent — counted in your Budget total</span>}
           </p>
         </div>
         <div className="flex gap-2">
@@ -73,40 +76,53 @@ export default function DocumentsTab() {
           <Card key={category}>
             <h3 className="font-medium text-slate-200 mb-2">{CATEGORY_LABEL[category]}</h3>
             <div className="space-y-1">
-              {catItems.map((item) => (
-                <div key={item.id} className="flex items-start gap-3 py-1.5 group">
-                  <input
-                    type="checkbox"
-                    checked={item.done}
-                    onChange={(e) => update(item.id, { done: e.target.checked })}
-                    className="w-4 h-4 mt-0.5 rounded accent-sky-500"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm ${item.done ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{item.label}</p>
-                    {item.notes && <p className="text-xs text-slate-500">{item.notes}</p>}
-                    {item.link && (
-                      <a href={item.link} target="_blank" rel="noreferrer" className="text-xs text-sky-400 hover:underline">
-                        {item.link}
-                      </a>
-                    )}
+              {catItems.map((item) => {
+                const meta = countryOrTripMeta(item.country ?? 'trip')
+                return (
+                  <div key={item.id} className="flex items-start gap-3 py-1.5 group">
+                    <input
+                      type="checkbox"
+                      checked={item.done}
+                      onChange={(e) => update(item.id, { done: e.target.checked })}
+                      className="w-4 h-4 mt-0.5 rounded accent-sky-500"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <p className={`text-sm ${item.done ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{item.label}</p>
+                        <Pill color={meta.color}>
+                          {meta.flag} {meta.name}
+                        </Pill>
+                        {item.cost !== undefined && (
+                          <span className="text-xs text-slate-400">
+                            {item.currency ?? 'GBP'} {item.cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        )}
+                      </div>
+                      {item.notes && <p className="text-xs text-slate-500">{item.notes}</p>}
+                      {item.link && (
+                        <a href={item.link} target="_blank" rel="noreferrer" className="text-xs text-sky-400 hover:underline">
+                          {item.link}
+                        </a>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditing(item)
+                        setShowForm(true)
+                      }}
+                      className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-slate-300 text-xs transition-opacity"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => remove(item.id)}
+                      className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 text-xs transition-opacity"
+                    >
+                      Remove
+                    </button>
                   </div>
-                  <button
-                    onClick={() => {
-                      setEditing(item)
-                      setShowForm(true)
-                    }}
-                    className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-slate-300 text-xs transition-opacity"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => remove(item.id)}
-                    className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 text-xs transition-opacity"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </Card>
         ))}
@@ -154,15 +170,48 @@ function DocumentForm({
           <Label htmlFor="label">Label</Label>
           <Input id="label" required value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} />
         </div>
-        <div>
-          <Label htmlFor="category">Category</Label>
-          <Select id="category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as DocumentItem['category'] })}>
-            {Object.entries(CATEGORY_LABEL).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </Select>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="category">Category</Label>
+            <Select id="category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as DocumentItem['category'] })}>
+              {Object.entries(CATEGORY_LABEL).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="country">Country</Label>
+            <Select id="country" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value as DocumentCountry })}>
+              <option value="trip">🧳 Whole trip</option>
+              {COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.flag} {c.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </div>
+        <p className="text-xs text-slate-500 -mt-1">
+          Pick "Whole trip" for things like vaccinations or insurance that aren't tied to one country.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="cost">Cost (optional)</Label>
+            <Input
+              id="cost"
+              type="number"
+              min={0}
+              step="0.01"
+              value={form.cost ?? ''}
+              onChange={(e) => setForm({ ...form, cost: e.target.value ? Number(e.target.value) : undefined })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="currency">Currency</Label>
+            <Input id="currency" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} />
+          </div>
         </div>
         <div>
           <Label htmlFor="notes">Notes</Label>

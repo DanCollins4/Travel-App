@@ -1,4 +1,4 @@
-import type { CountryCode } from '../types'
+import type { CountryCode, DocumentCountry } from '../types'
 
 export const COUNTRIES: { code: CountryCode; name: string; flag: string; color: string }[] = [
   { code: 'australia', name: 'Australia', flag: '🇦🇺', color: '#fb923c' },
@@ -30,4 +30,11 @@ const COUNTRY_ISO2: Partial<Record<CountryCode, string>> = {
 
 export function countryIso2(code: CountryCode): string | undefined {
   return COUNTRY_ISO2[code]
+}
+
+const TRIP_META = { code: 'trip' as const, name: 'Whole trip', flag: '🧳', color: '#facc15' }
+
+/** Like countryMeta, but also handles the 'trip' pseudo-country (costs not tied to one place). */
+export function countryOrTripMeta(code: DocumentCountry) {
+  return code === 'trip' ? TRIP_META : countryMeta(code)
 }

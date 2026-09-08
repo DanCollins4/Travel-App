@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useCollection } from '../hooks/useCollection'
-import type { BookedItem, BudgetCategory, BudgetEntry, CountryCode } from '../types'
-import { COUNTRIES, countryMeta } from '../data/countryMeta'
+import type { BookedItem, BudgetCategory, BudgetEntry, CountryCode, DocumentCountry, DocumentItem } from '../types'
+import { COUNTRIES, countryMeta, countryOrTripMeta } from '../data/countryMeta'
 import { Button, Card, EmptyState, Input, Label, Select } from '../components/ui'
 import Modal from '../components/Modal'
 import CurrencyConverter from '../components/CurrencyConverter'
@@ -14,6 +14,7 @@ const CATEGORY_LABEL: Record<BudgetCategory, string> = {
   activities: '🧭 Activities & tours',
   visas: '🛂 Visas',
   insurance: '🛡️ Insurance',
+  vaccinations: '💉 Vaccinations',
   gear: '🎒 Gear',
   other: '📌 Other',
 }
@@ -25,6 +26,15 @@ const TYPE_TO_CATEGORY: Record<BookedItem['type'], BudgetCategory> = {
   ferry: 'transport',
   accommodation: 'accommodation',
   tour: 'activities',
+  other: 'other',
+}
+
+const DOCUMENT_CATEGORY_TO_BUDGET: Record<DocumentItem['category'], BudgetCategory> = {
+  passport: 'other',
+  visa: 'visas',
+  insurance: 'insurance',
+  vaccination: 'vaccinations',
+  booking: 'other',
   other: 'other',
 }
 
@@ -41,6 +51,7 @@ const emptyForm: FormState = {
 export default function BudgetTab() {
   const budget = useCollection<BudgetEntry>('budget')
   const { items: booked } = useCollection<BookedItem>('booked')
+  const { items: documents } = useCollection<DocumentItem>('documents')
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<BudgetEntry | null>(null)
 
@@ -48,15 +59,20 @@ export default function BudgetTab() {
     const totals = new Map<BudgetCategory, number>()
     for (const b of booked) totals.set(TYPE_TO_CATEGORY[b.type], (totals.get(TYPE_TO_CATEGORY[b.type]) ?? 0) + (b.cost ?? 0))
     for (const e of budget.items) totals.set(e.category, (totals.get(e.category) ?? 0) + e.amount)
+    for (const d of documents) {
+      const cat = DOCUMENT_CATEGORY_TO_BUDGET[d.category]
+      totals.set(cat, (totals.get(cat) ?? 0) + (d.cost ?? 0))
+    }
     return [...totals.entries()].sort((a, b) => b[1] - a[1])
-  }, [booked, budget.items])
+  }, [booked, budget.items, documents])
 
   const byCountry = useMemo(() => {
-    const totals = new Map<CountryCode, number>()
+    const totals = new Map<DocumentCountry, number>()
     for (const b of booked) totals.set(b.country, (totals.get(b.country) ?? 0) + (b.cost ?? 0))
     for (const e of budget.items) totals.set(e.country, (totals.get(e.country) ?? 0) + e.amount)
+    for (const d of documents) totals.set(d.country ?? 'trip', (totals.get(d.country ?? 'trip') ?? 0) + (d.cost ?? 0))
     return [...totals.entries()].sort((a, b) => b[1] - a[1])
-  }, [booked, budget.items])
+  }, [booked, budget.items, documents])
 
   const maxCategory = Math.max(1, ...byCategory.map(([, v]) => v))
   const maxCountry = Math.max(1, ...byCountry.map(([, v]) => v))
@@ -70,7 +86,8 @@ export default function BudgetTab() {
     () => budget.items.filter((e) => !e.planned).reduce((s, e) => s + e.amount, 0),
     [budget.items],
   )
-  const grandTotal = bookedTotal + plannedTotal + spentExtra
+  const documentsTotal = useMemo(() => documents.reduce((s, d) => s + (d.cost ?? 0), 0), [documents])
+  const grandTotal = bookedTotal + plannedTotal + spentExtra + documentsTotal
 
   return (
     <div className="space-y-4">
@@ -89,10 +106,14 @@ export default function BudgetTab() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <Card className="text-center py-3">
           <p className="text-xl font-semibold">£{bookedTotal.toLocaleString()}</p>
           <p className="text-xs text-slate-500">Booked (confirmed)</p>
+        </Card>
+        <Card className="text-center py-3">
+          <p className="text-xl font-semibold">£{documentsTotal.toLocaleString()}</p>
+          <p className="text-xs text-slate-500">Docs &amp; prep</p>
         </Card>
         <Card className="text-center py-3">
           <p className="text-xl font-semibold">£{plannedTotal.toLocaleString()}</p>
@@ -137,7 +158,7 @@ export default function BudgetTab() {
           <h3 className="font-medium text-slate-200 mb-3">By country</h3>
           <div className="space-y-2.5">
             {byCountry.map(([code, amount]) => {
-              const meta = countryMeta(code)
+              const meta = countryOrTripMeta(code)
               return (
                 <div key={code}>
                   <div className="flex justify-between text-xs text-slate-400 mb-1">
