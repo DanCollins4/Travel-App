@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useCollection } from '../hooks/useCollection'
-import type { BookedItem, BudgetCategory, BudgetEntry, CountryCode, DocumentCountry, DocumentItem } from '../types'
+import type { BookedItem, BudgetCategory, BudgetEntry, CountryCode, CountryReview, DocumentCountry, DocumentItem } from '../types'
 import { COUNTRIES, countryMeta, countryOrTripMeta } from '../data/countryMeta'
-import { Button, Card, EmptyState, Input, Label, Select } from '../components/ui'
+import { Button, Card, EmptyState, Input, Label, Select, Textarea } from '../components/ui'
 import Modal from '../components/Modal'
 import CurrencyConverter from '../components/CurrencyConverter'
 
@@ -52,8 +52,10 @@ export default function BudgetTab() {
   const budget = useCollection<BudgetEntry>('budget')
   const { items: booked } = useCollection<BookedItem>('booked')
   const { items: documents } = useCollection<DocumentItem>('documents')
+  const reviews = useCollection<CountryReview>('countryReviews')
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<BudgetEntry | null>(null)
+  const [reviewingCountry, setReviewingCountry] = useState<CountryCode | null>(null)
 
   const byCategory = useMemo(() => {
     const totals = new Map<BudgetCategory, number>()
@@ -73,6 +75,32 @@ export default function BudgetTab() {
     for (const d of documents) totals.set(d.country ?? 'trip', (totals.get(d.country ?? 'trip') ?? 0) + (d.cost ?? 0))
     return [...totals.entries()].sort((a, b) => b[1] - a[1])
   }, [booked, budget.items, documents])
+
+  // What you'd estimated for each country before arriving — just the entries
+  // explicitly marked as estimates, so this reflects what you actually guessed.
+  const estimatedByCountry = useMemo(() => {
+    const totals = new Map<CountryCode, number>()
+    for (const e of budget.items.filter((e) => e.planned)) totals.set(e.country, (totals.get(e.country) ?? 0) + e.amount)
+    return totals
+  }, [budget.items])
+
+  // Everything the app already knows you've actually committed/spent per
+  // country — used to pre-fill the "actual spend" field as a starting point.
+  const trackedByCountry = useMemo(() => {
+    const totals = new Map<CountryCode, number>()
+    for (const b of booked) totals.set(b.country, (totals.get(b.country) ?? 0) + (b.cost ?? 0))
+    for (const e of budget.items.filter((e) => !e.planned)) totals.set(e.country, (totals.get(e.country) ?? 0) + e.amount)
+    for (const d of documents) {
+      if (!d.country || d.country === 'trip') continue
+      totals.set(d.country, (totals.get(d.country) ?? 0) + (d.cost ?? 0))
+    }
+    return totals
+  }, [booked, budget.items, documents])
+
+  const reviewedCountries = useMemo(() => {
+    const codes = new Set<CountryCode>([...estimatedByCountry.keys(), ...reviews.items.map((r) => r.country)])
+    return [...codes].sort((a, b) => countryMeta(a).name.localeCompare(countryMeta(b).name))
+  }, [estimatedByCountry, reviews.items])
 
   const maxCategory = Math.max(1, ...byCategory.map(([, v]) => v))
   const maxCountry = Math.max(1, ...byCountry.map(([, v]) => v))
@@ -181,6 +209,60 @@ export default function BudgetTab() {
       )}
 
       <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-medium text-slate-200">Country wrap-up: estimate vs actual</h3>
+        </div>
+        {reviewedCountries.length === 0 ? (
+          <EmptyState
+            icon="🧮"
+            title="Nothing to compare yet"
+            subtitle="Once you've added an estimate for a country, you'll be able to log what you actually spent there and see the difference."
+          />
+        ) : (
+          <div className="space-y-2">
+            {reviewedCountries.map((code) => {
+              const meta = countryMeta(code)
+              const estimated = estimatedByCountry.get(code) ?? 0
+              const review = reviews.items.find((r) => r.country === code)
+              const actual = review?.actualSpend
+              const diff = actual !== undefined ? actual - estimated : undefined
+              return (
+                <Card key={code} className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm font-medium text-slate-100">
+                      {meta.flag} {meta.name}
+                    </span>
+                    <Button variant="secondary" onClick={() => setReviewingCountry(code)}>
+                      {review ? 'Edit' : '+ Log actual spend'}
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <p className="text-lg font-semibold text-slate-200">£{estimated.toLocaleString()}</p>
+                      <p className="text-xs text-slate-500">Estimated</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-semibold text-slate-200">
+                        {actual !== undefined ? `£${actual.toLocaleString()}` : '—'}
+                      </p>
+                      <p className="text-xs text-slate-500">Actual</p>
+                    </div>
+                    <div>
+                      <p className={`text-lg font-semibold ${diff === undefined ? 'text-slate-500' : diff > 0 ? 'text-red-400' : diff < 0 ? 'text-emerald-400' : 'text-slate-300'}`}>
+                        {diff === undefined ? '—' : `${diff > 0 ? '+' : ''}£${diff.toLocaleString()}`}
+                      </p>
+                      <p className="text-xs text-slate-500">{diff === undefined ? 'Difference' : diff > 0 ? 'Over budget' : diff < 0 ? 'Under budget' : 'Bang on'}</p>
+                    </div>
+                  </div>
+                  {review?.reason && <p className="text-sm text-slate-400 border-t border-slate-800 pt-2">{review.reason}</p>}
+                </Card>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <div>
         <h3 className="font-medium text-slate-200 mb-2">Estimates &amp; extra spending</h3>
         {budget.items.length === 0 ? (
           <EmptyState icon="💰" title="No estimates yet" subtitle="Add things like daily food budget, insurance, visas or gear." />
@@ -228,6 +310,23 @@ export default function BudgetTab() {
             if (editing) await budget.update(editing.id, data)
             else await budget.add(data)
             setShowForm(false)
+          }}
+        />
+      )}
+
+      {reviewingCountry && (
+        <CountryReviewModal
+          country={reviewingCountry}
+          initial={reviews.items.find((r) => r.country === reviewingCountry) ?? null}
+          suggestedAmount={trackedByCountry.get(reviewingCountry) ?? 0}
+          onCancel={() => setReviewingCountry(null)}
+          onSave={async (data) => {
+            await reviews.addWithId(reviewingCountry, data)
+            setReviewingCountry(null)
+          }}
+          onDelete={async () => {
+            await reviews.remove(reviewingCountry)
+            setReviewingCountry(null)
           }}
         />
       )}
@@ -308,6 +407,92 @@ function BudgetForm({
           <Button type="submit" disabled={saving}>
             {saving ? 'Saving…' : 'Save'}
           </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function CountryReviewModal({
+  country,
+  initial,
+  suggestedAmount,
+  onSave,
+  onCancel,
+  onDelete,
+}: {
+  country: CountryCode
+  initial: CountryReview | null
+  suggestedAmount: number
+  onSave: (data: Omit<CountryReview, 'id' | 'createdAt'>) => Promise<void>
+  onCancel: () => void
+  onDelete: () => Promise<void>
+}) {
+  const meta = countryMeta(country)
+  const [actualSpend, setActualSpend] = useState(initial?.actualSpend ?? suggestedAmount)
+  const [currency, setCurrency] = useState(initial?.currency ?? 'GBP')
+  const [reason, setReason] = useState(initial?.reason ?? '')
+  const [saving, setSaving] = useState(false)
+
+  return (
+    <Modal title={`${meta.flag} ${meta.name} — actual spend`} onClose={onCancel}>
+      <form
+        className="space-y-3"
+        onSubmit={async (e) => {
+          e.preventDefault()
+          setSaving(true)
+          await onSave({ country, actualSpend, currency, reason })
+          setSaving(false)
+        }}
+      >
+        <p className="text-xs text-slate-500">
+          Pre-filled with what the app has already tracked for {meta.name} — adjust it to match your bank/Revolut
+          statement for the real total.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="actualSpend">Actual spend</Label>
+            <Input
+              id="actualSpend"
+              type="number"
+              min={0}
+              step="0.01"
+              required
+              value={actualSpend}
+              onChange={(e) => setActualSpend(Number(e.target.value))}
+            />
+          </div>
+          <div>
+            <Label htmlFor="reviewCurrency">Currency</Label>
+            <Input id="reviewCurrency" value={currency} onChange={(e) => setCurrency(e.target.value)} />
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="reason">Reason for the difference (optional)</Label>
+          <Textarea
+            id="reason"
+            rows={3}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="e.g. Went over on activities — did a diving course we hadn't planned for"
+          />
+        </div>
+        <div className="flex justify-between gap-2 pt-2">
+          {initial ? (
+            <Button type="button" variant="danger" onClick={onDelete}>
+              Remove
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <Button type="button" variant="ghost" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </div>
         </div>
       </form>
     </Modal>

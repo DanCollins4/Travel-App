@@ -90,6 +90,17 @@ export interface BudgetEntry {
   createdAt: number
 }
 
+/** A post-country wrap-up: what you actually spent vs what you'd estimated,
+ * and why. One per country — the doc id is the CountryCode itself. */
+export interface CountryReview {
+  id: CountryCode
+  country: CountryCode
+  actualSpend: number
+  currency: string
+  reason?: string
+  createdAt: number
+}
+
 /** A document/prep cost can belong to a specific country, or to 'trip' for
  * things like vaccinations or insurance that aren't tied to one place. */
 export type DocumentCountry = CountryCode | 'trip'
