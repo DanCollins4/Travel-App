@@ -17,6 +17,8 @@ function emptyForm(): FormState {
     country: 'thailand',
     linkedBookingId: undefined,
     text: '',
+    rating: undefined,
+    oneWord: '',
     photoUrls: [],
   }
 }
@@ -74,10 +76,16 @@ export default function JournalTab() {
                     {linked ? ` · 📍 ${linked}` : ''}
                   </p>
                 </div>
-                <Pill color={meta.color}>
-                  {meta.flag} {meta.name}
-                </Pill>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {entry.rating !== undefined && <Pill color="#facc15">⭐ {entry.rating}/10</Pill>}
+                  <Pill color={meta.color}>
+                    {meta.flag} {meta.name}
+                  </Pill>
+                </div>
               </div>
+              {entry.oneWord && (
+                <p className="text-lg font-semibold text-sky-300">"{entry.oneWord}"</p>
+              )}
               {entry.text && <p className="text-sm text-slate-300 whitespace-pre-wrap">{entry.text}</p>}
               {entry.photoUrls.length > 0 && (
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -214,6 +222,32 @@ function JournalForm({
               </option>
             ))}
           </Select>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="rating">Rate the day (out of 10)</Label>
+            <Select
+              id="rating"
+              value={form.rating ?? ''}
+              onChange={(e) => setForm({ ...form, rating: e.target.value ? Number(e.target.value) : undefined })}
+            >
+              <option value="">— None —</option>
+              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>
+                  {n} / 10
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="oneWord">The day in one word</Label>
+            <Input
+              id="oneWord"
+              value={form.oneWord}
+              onChange={(e) => setForm({ ...form, oneWord: e.target.value })}
+              placeholder="e.g. Unforgettable"
+            />
+          </div>
         </div>
         <div>
           <Label htmlFor="text">What happened</Label>

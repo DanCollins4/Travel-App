@@ -115,6 +115,10 @@ export interface JournalEntry {
   /** Optional link to the Booked stop this entry happened at. */
   linkedBookingId?: string
   text?: string
+  /** Rating for the day, 1-10. */
+  rating?: number
+  /** The day summed up in one word. */
+  oneWord?: string
   photoUrls: string[]
   createdAt: number
 }
