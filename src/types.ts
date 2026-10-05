@@ -79,22 +79,28 @@ export type BudgetCategory =
   | 'gear'
   | 'other'
 
+/** A budget cost can belong to a specific country, to 'trip' for whole-trip
+ * costs, or to 'international' for travel between countries that shouldn't
+ * be credited to either side (e.g. a flight from Thailand to Vietnam). */
+export type BudgetScope = CountryCode | 'trip' | 'international'
+
 export interface BudgetEntry {
   id: string
   label: string
   category: BudgetCategory
-  country: CountryCode
+  country: BudgetScope
   amount: number
   currency: string
   planned: boolean // true = estimate, false = actually spent/booked
   createdAt: number
 }
 
-/** A post-country wrap-up: what you actually spent vs what you'd estimated,
- * and why. One per country — the doc id is the CountryCode itself. */
+/** A post-country (or international-travel) wrap-up: what you actually spent
+ * vs what you'd estimated, and why. One per scope — the doc id is the
+ * BudgetScope itself. */
 export interface CountryReview {
-  id: CountryCode
-  country: CountryCode
+  id: BudgetScope
+  country: BudgetScope
   actualSpend: number
   currency: string
   reason?: string

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useCollection } from '../hooks/useCollection'
-import type { BookedItem, BudgetCategory, BudgetEntry, CountryCode, CountryReview, DocumentCountry, DocumentItem } from '../types'
-import { COUNTRIES, countryMeta, countryOrTripMeta } from '../data/countryMeta'
+import type { BookedItem, BudgetCategory, BudgetEntry, BudgetScope, CountryReview, DocumentItem } from '../types'
+import { COUNTRIES, spendScopeMeta } from '../data/countryMeta'
 import { Button, Card, EmptyState, Input, Label, Select, Textarea } from '../components/ui'
 import Modal from '../components/Modal'
 import CurrencyConverter from '../components/CurrencyConverter'
@@ -55,7 +55,7 @@ export default function BudgetTab() {
   const reviews = useCollection<CountryReview>('countryReviews')
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<BudgetEntry | null>(null)
-  const [reviewingCountry, setReviewingCountry] = useState<CountryCode | null>(null)
+  const [reviewingCountry, setReviewingCountry] = useState<BudgetScope | null>(null)
 
   const byCategory = useMemo(() => {
     const totals = new Map<BudgetCategory, number>()
@@ -69,25 +69,25 @@ export default function BudgetTab() {
   }, [booked, budget.items, documents])
 
   const byCountry = useMemo(() => {
-    const totals = new Map<DocumentCountry, number>()
+    const totals = new Map<BudgetScope, number>()
     for (const b of booked) totals.set(b.country, (totals.get(b.country) ?? 0) + (b.cost ?? 0))
     for (const e of budget.items) totals.set(e.country, (totals.get(e.country) ?? 0) + e.amount)
     for (const d of documents) totals.set(d.country ?? 'trip', (totals.get(d.country ?? 'trip') ?? 0) + (d.cost ?? 0))
     return [...totals.entries()].sort((a, b) => b[1] - a[1])
   }, [booked, budget.items, documents])
 
-  // What you'd estimated for each country before arriving — just the entries
+  // What you'd estimated for each scope before arriving — just the entries
   // explicitly marked as estimates, so this reflects what you actually guessed.
   const estimatedByCountry = useMemo(() => {
-    const totals = new Map<CountryCode, number>()
+    const totals = new Map<BudgetScope, number>()
     for (const e of budget.items.filter((e) => e.planned)) totals.set(e.country, (totals.get(e.country) ?? 0) + e.amount)
     return totals
   }, [budget.items])
 
   // Everything the app already knows you've actually committed/spent per
-  // country — used to pre-fill the "actual spend" field as a starting point.
+  // scope — used to pre-fill the "actual spend" field as a starting point.
   const trackedByCountry = useMemo(() => {
-    const totals = new Map<CountryCode, number>()
+    const totals = new Map<BudgetScope, number>()
     for (const b of booked) totals.set(b.country, (totals.get(b.country) ?? 0) + (b.cost ?? 0))
     for (const e of budget.items.filter((e) => !e.planned)) totals.set(e.country, (totals.get(e.country) ?? 0) + e.amount)
     for (const d of documents) {
@@ -98,8 +98,8 @@ export default function BudgetTab() {
   }, [booked, budget.items, documents])
 
   const reviewedCountries = useMemo(() => {
-    const codes = new Set<CountryCode>([...estimatedByCountry.keys(), ...reviews.items.map((r) => r.country)])
-    return [...codes].sort((a, b) => countryMeta(a).name.localeCompare(countryMeta(b).name))
+    const codes = new Set<BudgetScope>([...estimatedByCountry.keys(), ...reviews.items.map((r) => r.country)])
+    return [...codes].sort((a, b) => spendScopeMeta(a).name.localeCompare(spendScopeMeta(b).name))
   }, [estimatedByCountry, reviews.items])
 
   const maxCategory = Math.max(1, ...byCategory.map(([, v]) => v))
@@ -186,7 +186,7 @@ export default function BudgetTab() {
           <h3 className="font-medium text-slate-200 mb-3">By country</h3>
           <div className="space-y-2.5">
             {byCountry.map(([code, amount]) => {
-              const meta = countryOrTripMeta(code)
+              const meta = spendScopeMeta(code)
               return (
                 <div key={code}>
                   <div className="flex justify-between text-xs text-slate-400 mb-1">
@@ -221,7 +221,7 @@ export default function BudgetTab() {
         ) : (
           <div className="space-y-2">
             {reviewedCountries.map((code) => {
-              const meta = countryMeta(code)
+              const meta = spendScopeMeta(code)
               const estimated = estimatedByCountry.get(code) ?? 0
               const review = reviews.items.find((r) => r.country === code)
               const actual = review?.actualSpend
@@ -249,7 +249,7 @@ export default function BudgetTab() {
                     </div>
                     <div>
                       <p className={`text-lg font-semibold ${diff === undefined ? 'text-slate-500' : diff > 0 ? 'text-red-400' : diff < 0 ? 'text-emerald-400' : 'text-slate-300'}`}>
-                        {diff === undefined ? '—' : `${diff > 0 ? '+' : ''}£${diff.toLocaleString()}`}
+                        {diff === undefined ? '—' : `${diff > 0 ? '+' : diff < 0 ? '-' : ''}£${Math.abs(diff).toLocaleString()}`}
                       </p>
                       <p className="text-xs text-slate-500">{diff === undefined ? 'Difference' : diff > 0 ? 'Over budget' : diff < 0 ? 'Under budget' : 'Bang on'}</p>
                     </div>
@@ -269,7 +269,7 @@ export default function BudgetTab() {
         ) : (
           <div className="space-y-2">
             {budget.items.map((entry) => {
-              const meta = countryMeta(entry.country)
+              const meta = spendScopeMeta(entry.country)
               return (
                 <Card key={entry.id} className="flex items-center justify-between gap-3 py-2.5">
                   <div className="min-w-0">
@@ -374,7 +374,8 @@ function BudgetForm({
           </div>
           <div>
             <Label htmlFor="country">Country</Label>
-            <Select id="country" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value as CountryCode })}>
+            <Select id="country" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value as BudgetScope })}>
+              <option value="international">✈️ International travel</option>
               {COUNTRIES.map((c) => (
                 <option key={c.code} value={c.code}>
                   {c.flag} {c.name}
@@ -383,6 +384,10 @@ function BudgetForm({
             </Select>
           </div>
         </div>
+        <p className="text-xs text-slate-500 -mt-1">
+          Pick "International travel" for costs that cross borders (like a flight between two countries) so they
+          aren't credited to either side.
+        </p>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="amount">Amount</Label>
@@ -421,14 +426,14 @@ function CountryReviewModal({
   onCancel,
   onDelete,
 }: {
-  country: CountryCode
+  country: BudgetScope
   initial: CountryReview | null
   suggestedAmount: number
   onSave: (data: Omit<CountryReview, 'id' | 'createdAt'>) => Promise<void>
   onCancel: () => void
   onDelete: () => Promise<void>
 }) {
-  const meta = countryMeta(country)
+  const meta = spendScopeMeta(country)
   const [actualSpend, setActualSpend] = useState(initial?.actualSpend ?? suggestedAmount)
   const [currency, setCurrency] = useState(initial?.currency ?? 'GBP')
   const [reason, setReason] = useState(initial?.reason ?? '')

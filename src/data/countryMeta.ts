@@ -1,4 +1,4 @@
-import type { CountryCode, DocumentCountry } from '../types'
+import type { BudgetScope, CountryCode, DocumentCountry } from '../types'
 
 export const COUNTRIES: { code: CountryCode; name: string; flag: string; color: string }[] = [
   { code: 'australia', name: 'Australia', flag: '🇦🇺', color: '#fb923c' },
@@ -33,8 +33,16 @@ export function countryIso2(code: CountryCode): string | undefined {
 }
 
 const TRIP_META = { code: 'trip' as const, name: 'Whole trip', flag: '🧳', color: '#facc15' }
+const INTERNATIONAL_META = { code: 'international' as const, name: 'International travel', flag: '✈️', color: '#38bdf8' }
 
 /** Like countryMeta, but also handles the 'trip' pseudo-country (costs not tied to one place). */
 export function countryOrTripMeta(code: DocumentCountry) {
   return code === 'trip' ? TRIP_META : countryMeta(code)
+}
+
+/** Like countryMeta, but also handles the 'trip' and 'international' pseudo-countries used in Budget. */
+export function spendScopeMeta(code: BudgetScope) {
+  if (code === 'trip') return TRIP_META
+  if (code === 'international') return INTERNATIONAL_META
+  return countryMeta(code)
 }
